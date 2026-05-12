@@ -10,6 +10,7 @@ router.get('/', controller.listProfiles);
 router.post('/', controller.createProfile);
 router.put('/:id', controller.updateProfile);
 router.patch('/:id/verdict', controller.updateVerdict);
+router.patch('/:id/notes', controller.updateNotes);
 router.delete('/:id', controller.deleteProfile);
 
 // Export

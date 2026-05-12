@@ -137,6 +137,20 @@ export async function deleteProfile(req, res) {
   }
 }
 
+export async function updateNotes(req, res) {
+  try {
+    const { id } = req.params;
+    const { notes } = req.body || {};
+    const pool = await getPool();
+    const { rowCount } = await pool.query('UPDATE profiles SET notes=$1 WHERE id=$2', [notes || null, id]);
+    if (rowCount === 0) return res.status(404).json({ error: 'Not found' });
+    const { rows } = await pool.query('SELECT * FROM profiles WHERE id=$1', [id]);
+    res.json(fromDbRow(rows[0]));
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+}
+
 export async function exportSQL(req, res) {
   try {
     const pool = await getPool();
