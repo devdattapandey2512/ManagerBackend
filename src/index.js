@@ -14,7 +14,7 @@ app.use(helmet());
 
 // Flexible CORS for deployment
 const corsOptions = {
-  origin: env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : true,
+  origin: process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : true,
   credentials: true,
 };
 app.use(cors(corsOptions));
