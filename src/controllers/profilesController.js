@@ -3,6 +3,7 @@ import { calculateScore } from '../utils/score.js';
 import { newId } from '../utils/id.js';
 import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
+import format from 'pg-format';
 
 // Helpers to map between API shape (camelCase) and DB (snake_case)
 function toDbRow(p) {
@@ -58,7 +59,7 @@ function fromDbRow(r) {
 export async function listProfiles(req, res) {
   try {
     const pool = await getPool();
-    const [rows] = await pool.query('SELECT * FROM profiles ORDER BY created_at DESC');
+    const { rows } = await pool.query('SELECT * FROM profiles ORDER BY created_at DESC');
     res.json(rows.map(fromDbRow));
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -75,7 +76,7 @@ export async function createProfile(req, res) {
 
     const pool = await getPool();
     const sql = `INSERT INTO profiles (id, name, age, salary, occupation, looks, height, managed_by, native, resident, college, surname, gotra, food, maanglik, family_background, final_verdict, notes, score, created_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)`;
     const params = [
       row.id, row.name, row.age, row.salary, row.occupation, row.looks, row.height, row.managed_by, row.native, row.resident,
       row.college, row.surname, row.gotra, row.food, row.maanglik, row.family_background, row.final_verdict, row.notes,
@@ -95,15 +96,15 @@ export async function updateProfile(req, res) {
     // Recalculate score on updates
     const score = calculateScore(input);
     const pool = await getPool();
-    const sql = `UPDATE profiles SET name=?, age=?, salary=?, occupation=?, looks=?, height=?, managed_by=?, native=?, resident=?, college=?, surname=?, gotra=?, food=?, maanglik=?, family_background=?, final_verdict=?, notes=?, score=? WHERE id=?`;
+    const sql = `UPDATE profiles SET name=$1, age=$2, salary=$3, occupation=$4, looks=$5, height=$6, managed_by=$7, native=$8, resident=$9, college=$10, surname=$11, gotra=$12, food=$13, maanglik=$14, family_background=$15, final_verdict=$16, notes=$17, score=$18 WHERE id=$19`;
     const params = [
       input.name, input.age, input.salary, input.occupation, input.looks, input.height, input.managedBy, input.native, input.resident,
       input.college, input.surname, input.gotra, input.food, input.maanglik, input.familyBackground, input.finalVerdict, input.notes,
       score, id
     ];
-    const [result] = await pool.query(sql, params);
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'Not found' });
-    const [rows] = await pool.query('SELECT * FROM profiles WHERE id=?', [id]);
+    const { rowCount } = await pool.query(sql, params);
+    if (rowCount === 0) return res.status(404).json({ error: 'Not found' });
+    const { rows } = await pool.query('SELECT * FROM profiles WHERE id=$1', [id]);
     res.json(fromDbRow(rows[0]));
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -115,9 +116,9 @@ export async function updateVerdict(req, res) {
     const { id } = req.params;
     const { finalVerdict } = req.body || {};
     const pool = await getPool();
-    const [result] = await pool.query('UPDATE profiles SET final_verdict=? WHERE id=?', [finalVerdict || null, id]);
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'Not found' });
-    const [rows] = await pool.query('SELECT * FROM profiles WHERE id=?', [id]);
+    const { rowCount } = await pool.query('UPDATE profiles SET final_verdict=$1 WHERE id=$2', [finalVerdict || null, id]);
+    if (rowCount === 0) return res.status(404).json({ error: 'Not found' });
+    const { rows } = await pool.query('SELECT * FROM profiles WHERE id=$1', [id]);
     res.json(fromDbRow(rows[0]));
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -128,8 +129,8 @@ export async function deleteProfile(req, res) {
   try {
     const { id } = req.params;
     const pool = await getPool();
-    const [result] = await pool.query('DELETE FROM profiles WHERE id=?', [id]);
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'Not found' });
+    const { rowCount } = await pool.query('DELETE FROM profiles WHERE id=$1', [id]);
+    if (rowCount === 0) return res.status(404).json({ error: 'Not found' });
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -139,7 +140,7 @@ export async function deleteProfile(req, res) {
 export async function exportSQL(req, res) {
   try {
     const pool = await getPool();
-    const [rows] = await pool.query('SELECT * FROM profiles ORDER BY created_at DESC');
+    const { rows } = await pool.query('SELECT * FROM profiles ORDER BY created_at DESC');
 
     let sqlContent = `-- Betu Marriage App Data Dump\n` +
       `-- Table Structure\n` +
@@ -186,7 +187,7 @@ export async function exportSQL(req, res) {
 export async function exportExcel(req, res) {
   try {
     const pool = await getPool();
-    const [rows] = await pool.query('SELECT * FROM profiles ORDER BY created_at DESC');
+    const { rows } = await pool.query('SELECT * FROM profiles ORDER BY created_at DESC');
 
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('Profiles');
@@ -228,7 +229,7 @@ export async function exportExcel(req, res) {
 export async function exportPDF(req, res) {
   try {
     const pool = await getPool();
-    const [rows] = await pool.query('SELECT * FROM profiles ORDER BY created_at DESC');
+    const { rows } = await pool.query('SELECT * FROM profiles ORDER BY created_at DESC');
 
     const filename = `profiles_${new Date().toISOString().slice(0,10)}.pdf`;
     res.setHeader('Content-Type', 'application/pdf');
@@ -287,10 +288,9 @@ export async function importExcel(req, res) {
     if (rows.length === 0) return res.json({ imported: 0 });
 
     const pool = await getPool();
-    const sql = `INSERT INTO profiles (id, name, age, salary, occupation, looks, height, managed_by, native, resident, college, surname, gotra, food, maanglik, family_background, final_verdict, notes, score, created_at)
-                 VALUES ?`;
     const values = rows.map(r => [r.id, r.name, r.age, r.salary, r.occupation, r.looks, r.height, r.managed_by, r.native, r.resident, r.college, r.surname, r.gotra, r.food, r.maanglik, r.family_background, r.final_verdict, r.notes, r.score, r.created_at]);
-    await pool.query(sql, [values]);
+    const sql = format(`INSERT INTO profiles (id, name, age, salary, occupation, looks, height, managed_by, native, resident, college, surname, gotra, food, maanglik, family_background, final_verdict, notes, score, created_at) VALUES %L`, values);
+    await pool.query(sql);
 
     res.json({ imported: rows.length });
   } catch (e) {

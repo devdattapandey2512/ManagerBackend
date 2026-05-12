@@ -12,18 +12,12 @@ const PORT = process.env.PORT || 4000;
 
 app.use(helmet());
 
-// Strict CORS: allowlist dev frontends and enable credentials
-const allowlist = (process.env.CORS_ORIGINS || 'http://localhost:5173,http://127.0.0.1:5173,http://192.168.1.6:5173,http://192.168.1.8:5173,http://192.168.75.201:5173').split(',');
+// Flexible CORS for deployment
 const corsOptions = {
-  origin: (origin, callback) => {
-    if (!origin) return callback(null, true); // allow curl/postman and same-origin
-    const ok = allowlist.includes(origin);
-    return callback(null, ok);
-  },
+  origin: process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : true,
   credentials: true,
 };
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
 app.use(express.json({ limit: '2mb' }));
 
 app.get('/health', async (req, res) => {
