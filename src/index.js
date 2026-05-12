@@ -10,21 +10,8 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-// Flexible CORS for deployment
-const corsOptions = {
-  origin: process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : true,
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-};
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions)); // Handle preflight requests for all routes
-
-app.use(helmet({
-  crossOriginResourcePolicy: false,
-  crossOriginOpenerPolicy: false,
-  crossOriginEmbedderPolicy: false,
-}));
+// CORS - allow everything
+app.use(cors());
 app.use(express.json({ limit: '2mb' }));
 
 app.get('/health', async (req, res) => {
